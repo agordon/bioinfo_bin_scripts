@@ -1,0 +1,20 @@
+configure
+Makefile
+Makefile.in
+scripts/Makefile
+scripts/Makefile.in
+INSTALL
+COPYING
+config/install-sh
+config/missing
+config.log
+config.status
+aclocal.m4
+autom4te.cache/*
+.version
+gordon_bioinfo_bin_scripts-*.tar.gz
+
+## The final scripts (after autotools' substitutions)
+## no need to track them (they are generated from the scripts/*.in files)
+
+

@@ -1,0 +1,36 @@
+Collection of useful Bioinformatics scripts
+===========================================
+
+Copyright (C) 2013, A. Gordon ( gordon at cshl dot edu )
+
+Available scripts
+-----------------
+
+INSTALLATION
+------------
+
+When using the released tarball version:
+
+ $ tar -xzvf bioinfo_bin_scripts-X.Y.Z.tar.gz
+ $ cd bioinfo_bin_scripts-X.Y.Z
+ $ ./configure
+ $ make
+ $ sudo make install
+
+When using the GIT repository:
+
+ $ git clone git://github.com/agordon/bioinfo_bin_scripts.git
+ $ cd bioinfo_bin_scripts
+ $ ./bootstrap.sh
+ $ ./configure
+ $ make
+ $ sudo make install
+
+
+SOURCE
+------
+See here: https://github.com/agordon/bioinfo_bin_scripts
+
+LICENSE
+-------
+AGPLv3+
