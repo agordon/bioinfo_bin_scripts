@@ -20,3 +20,4 @@ gordon_bioinfo_bin_scripts-*.tar.gz
 scripts/bam_to_genomecov_tabix
 scripts/get_region_coverage
 scripts/bam_to_genome_size
+scripts/sam_to_bambai

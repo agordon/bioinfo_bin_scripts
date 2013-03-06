@@ -26,6 +26,7 @@ AC_CONFIG_FILES( [
 		  scripts/bam_to_genome_size
 		  scripts/bam_to_genomecov_tabix
 		  scripts/get_region_coverage
+		  scripts/sam_to_bambai
 		  examples/Makefile
 		  ] )
 

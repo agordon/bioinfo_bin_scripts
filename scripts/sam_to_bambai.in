@@ -1,0 +1,39 @@
+#!/bin/sh
+
+set -o pipefail
+
+## Copyright (C) 2013   A. Gordon (gordon at cshl dot edu)
+## License: @LICENSE@
+## Version: @VERSION@
+
+FILE="$1"
+if [ -z "$FILE" -o "$FILE" = "--help" -o "$FILE" = "--help" ]; then
+	echo "Sam-to-Bam/Bai - creates a sorted BAM+BAI files from a SAM file."
+	echo "Copyright 2013 - By gordon@cshl.edu"
+	echo "License: @LICENSE@"
+	echo "Version: @VERSION@"
+	echo
+	echo "Usage: $0 INPUT.SAM [OUTPUT.BAM]"
+	echo
+	echo " INPUT.SAM - An input SAM file, with @SQ headers"
+	echo " [OUTPUT.BAM] - optional output file name. If not specified, uses same basename as the input file"
+	exit 1
+fi
+
+if [ ! -r "$FILE" ]; then
+	echo "Error: input file '$FILE' not found" >&2
+	exit 1
+fi
+
+OUTPUT="$2"
+if [ -z "$OUTPUT" ]; then
+	OUTPUT=$(dirname $FILE)"/"$(basename $FILE .sam)
+else
+	#remove the "BAM" extension, if any
+	OUTPUT=$(dirname $OUTPUT)"/"$(basename $OUTPUT .bam)
+fi
+
+samtools view -u -b -S "$FILE" | \
+   samtools sort -m 1000000000 - "$OUTPUT" || exit 1
+[ -r "$OUTPUT.bam" ] || { echo "Something went wrong, output BAM file ($OUTPUT.bam) not found!" >&2 ; exit 1 ; }
+samtools index "$OUTPUT.bam" || exit 1
