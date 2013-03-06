@@ -20,3 +20,8 @@ autoconf
 echo "- automake."
 automake -a --foreign
 
+echo
+echo "Done!"
+echo "  now run './configure'"
+echo
+
