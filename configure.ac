@@ -23,6 +23,9 @@ AC_SUBST(VERSION)
 AC_CONFIG_FILES( [
 		  Makefile
 		  scripts/Makefile
+		  scripts/bam_to_genome_size
+		  scripts/bam_to_genomecov_tabix
+		  scripts/get_region_coverage
 		  examples/Makefile
 		  ] )
 

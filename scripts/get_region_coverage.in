@@ -1,0 +1,122 @@
+#!/bin/sh
+
+set -o pipefail
+
+## Copyright (C) 2013   A. Gordon (gordon at cshl dot edu)
+## License: @LICENSE@
+## Version: @VERSION@
+
+##
+##
+##
+INPUT="$1"
+
+if [ "$INPUT" = "--help" -o "$INPUT" = "-h" ]; then
+	BASE=$(basename "$0")
+	cat<<EOF
+Extract Region Coverage (from pre-build GenomeCoverage+Tabix index)
+Copyright (C) 2013,  A. Gordon (gordon@cshl.edu)
+License: @LICENSE@
+Version: @VERSION@
+
+Usage:
+ $BASE GENOME-COVERAGE-FILE  NAME  CHROM  START  END  STRAND
+
+The output will have 5 fields:
+   1. chrom
+   2. genomic coordiante
+   3. region name
+   3. zero-based position
+   4. coverage value
+
+The output will contain ONE LINE PER GENOMIC COORDINATE.
+
+Example:
+    \$ $BASE FILE.bedgraph.gz XLOC_1234  chr1  1000 5000  +
+    chr1  1000  XLOC_1234  0  5
+    chr1  1001  XLOC_1234  1  5
+    chr1  1002  XLOC_1234  2  5
+    chr1  1003  XLOC_1234  3  5
+    chr1  1004  XLOC_1234  4  5
+    ...
+
+To plot coverage in Matlab, use field 2 for X and field 5 for Y.
+To plot coverage in genome browser, use field 4 for X and field 5 for Y
+
+EOF
+	exit 0
+fi
+
+NAME=$2
+SAFE_NAME=${NAME//[^A-Za-z0-9_.]/_}
+CHROM=$3
+SAFE_CHROM=${CHROM//[^A-Za-z0-9_.]/_}
+START=$4
+SAFE_START=${START//[^0-9]/_}
+END=$5
+SAFE_END=${END//[^0-9]/_}
+STRAND=$6
+
+## Ensure the input files exist
+[ -z "$INPUT" ] && { echo "Missing input Genome-Coverage file name. Use --help for details." >&2 ; exit 1 ; }
+[ -e "$INPUT" ] || { echo "Error: input Genome-Coverage file ($INPUT) not found." >&2 ; exit 1 ; }
+[ -e "$INPUT.tbi" ] || { echo "Error: input Genome-Coverage index file file ($INPUT.tbi) not found - did you run 'bam_to_genomecov_tabix.sh?" >&2 ; exit 1 ; }
+
+
+## Validate parameters
+[ -z "$NAME" ] && { echo "error: missing region name (2nd parameter). see --help for details." >&2 ; exit 1 ; }
+[ "$NAME" = "$SAFE_NAME" ] || { echo "Error: invalid NAME parameter ($NAME). Use letters/digits/period/underscore/minus. See --help for details." >&2 ; exit 1 ; }
+[ -z "$CHROM" ] && { echo "error: missing chromosome name (3rd parameter). see --help for details." >&2 ; exit 1 ; }
+[ "$CHROM" = "$SAFE_CHROM" ] || { echo "Error: invalid CHROM parameter ($NAME). Use letters/digits/period/underscore/minus. See --help for details." >&2 ; exit 1 ; }
+[ -z "$START" ] && { echo "error: missing Start coordinate (4th parameter). see --help for details." >&2 ; exit 1 ; }
+[ "$START" = "$SAFE_START" ] || { echo "Error: invalid START parameter ($START). Use only digits. See --help for details." >&2 ; exit 1 ; }
+[ -z "$END" ] && { echo "error: missing End coordinate (5th parameter). see --help for details." >&2 ; exit 1 ; }
+[ "$END" = "$SAFE_END" ] || { echo "Error: invalid END parameter ($END). Use only digits. See --help for details." >&2 ; exit 1 ; }
+[ -z "$STRAND" ] && { echo "error: missing Strand (6th parameter). see --help for details." >&2 ; exit 1 ; }
+[ "$STRAND" = "+" -o "$STRAND" = "-" ] || { echo "Error: invalid strand parameter ($STRAND): use + or - . See --help for details." >&2 ; exit 1 ; }
+
+TABIX_REGION="$CHROM:$START-$END"
+
+REVERSE_COMMAND="cat"
+[ "$STRAND" = "-" ] && REVERSE_COMMAND="tac"
+
+##
+## Pipe stages:
+## 1. The "Tabix" outputs the BedGraph Information, e.g.:
+##      chr1  1000 1050 5
+##      chr1  1050 1409 10
+##
+## 2. The first "awk" converts an interval (with start/end) to a single-line-per-coordinate
+##    file, for easier processing in matlab, e.g.:
+##      chr1  1000  5
+##      chr1  1001  5
+##      chr1  1002  5
+##      chr1  1003  5
+##      chr1  1004  5
+##
+## 3. The second "awk" filters locations that are beyond/after the start/end positions.
+##    Because we extract BedGraph intervals, asking for start coordinate 3000 can result
+##    in an interval "chr1 2500 4000" - after the first "awk" we'll need to filter every line
+##    with coordinate smaller than 3000.
+##
+## 4. The optional "REVERSE_COMMAND" will reverse the lines, effectively reporting
+##    the region as negative-stranded
+##
+## 5. The third "awk" adds zero-based coordiante value, in addition for the genome coordinate.
+##    The output fields are:
+##       1. chrom
+##       2. genomic coordiante
+##       3. region-name
+##       4. zero-based position
+##       5. coverage vaklue
+##
+##  To plot coverage in Matlab, use field 2 for X and field 5 for Y.
+##  To plot coverage in genome browser, use field 4 for X and field 5 for Y
+##
+tabix "$INPUT" "$TABIX_REGION" | \
+	tawk '{ start=$2 ; end=$3 ; for (i=start;i<end;i++) { print $1, i, $4 } }' | \
+	tawk "\$2>=$START && \$2<$END" | \
+	$REVERSE_COMMAND | \
+	tawk "{ print \$1, \$2, \"$NAME\", NR-1, \$3 }"
+
+

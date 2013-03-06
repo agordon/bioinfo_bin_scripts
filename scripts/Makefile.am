@@ -8,5 +8,9 @@
 # WITHOUT ANY WARRANTY, to the extent permitted by law; without even the
 # implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-bin_SCRIPTS =
+bin_SCRIPTS = \
+	bam_to_genome_size \
+	bam_to_genomecov_tabix \
+	get_region_coverage
+
 

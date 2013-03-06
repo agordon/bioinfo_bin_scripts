@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+## Copyright (C) 2013   A. Gordon (gordon at cshl dot edu)
+## License: @LICENSE@
+## Version: @VERSION@
+
+##
+## Extract Chromosomes and sizes from a BAM file, in a BEDTools' compatible way
+##
+INPUT="$1"
+
+if [ -z "$INPUT" -o "$INPUT" = "--help" -o "$INPUT" = "-h" ]; then
+BASE=$(basename "$0")
+	cat>&2<<EOF
+Bam to Genome-Size file       version $VERSION
+Copyright (C) 2013 A. Gordon <gordon@cshl.edu>
+License: @LICENSE@
+Version: @VERSION@
+
+
+Given a BAM file, this program outputs a text file with a list of chromosomes and their sizes,
+To be used with BEDTools' programs.
+
+Example:
+	$BASE INPUT.BAM output.txt
+or
+	$BASE INPUT.BAM > output.txt
+
+If only one parameter is given, the output goes to STDOUT.
+If a second parameter is given, it is treated as the output file name.
+
+The output file will have two fields:
+   chrom <tab> size
+Based on the chromosomes in the BAM header.
+
+Typical Usage example:
+ bedtools genomecov -bg -ibam mydata.bam > mydata.bedgraph
+ $BASE mydata.bam > mydata.genomesize
+ bedGraphToBigWig mydata.bedgraph mydata.genomesize mydata.bigwig
+
+
+EOF
+	exit 1
+fi
+
+[ -r "$INPUT" ] || { echo "Error: input BAM file '$INPUT' not found" >&2 ; exit 1 ; }
+
+OUTPUT="$2"
+[ -z "$OUTPUT" ] && OUTPUT="/dev/stdout"
+
+TMPERR=$(mktemp -t bam_to_genome.stderr.XXXXXXXX) || exit 1
+samtools view -H "$INPUT" 2>"$TMPERR" | grep "@SQ" | sed 's/@SQ\tSN:// ; s/LN://' | sort -k1,1 > "$OUTPUT"
+
+EXITCODE=$?
+if [ "$EXITCODE" -ne "0" ]; then
+	echo "Error: failed to extract genome information from bam file '$INPUT'" >&2
+	echo "error message from samtools:" >&2
+	cat "$TMPERR" >&2
+	rm -f "$TMPERR"
+	exit $EXITCODE
+fi
+rm -f "$TMPERR"
+exit 0

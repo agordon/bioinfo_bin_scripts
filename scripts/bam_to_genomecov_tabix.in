@@ -1,0 +1,116 @@
+#!/bin/sh
+
+set -o pipefail
+
+## Copyright (C) 2013   A. Gordon (gordon at cshl dot edu)
+## License: @LICENSE@
+## Version: @VERSION@
+
+##
+##
+##
+INPUT="$1"
+
+if [ "$INPUT" = "--help" -o "$INPUT" = "-h" ]; then
+	BASE=$(basename "$0")
+	cat<<EOF
+BAM to Genome-Coverage + Tabix
+Copyright (C) 2013,  A. Gordon (gordon@cshl.edu)
+License: @LICENSE@
+Version: @VERSION@
+
+Usage:
+ $BASE [BAMFILE]
+
+Will calculate genome coverage over input BAMFILE,
+and create a corresponding Tabix index for it.
+
+** NOTES **
+The coverage takes exon (split-reads) into account.
+The coverage DOES NOT take strand information into account (both strands are used).
+
+
+For a given FILE, the following output will be created:
+  FILE.bam.bai        - BAM file index (for UCSC Genome Browser Track)
+  FILE.bedgraph.gz    - Compress BedGraph file, with converage information
+  FILE.bedgraph.gztbi - Tabix index for BedGraph file - for later region extraction.
+  FILE.bigwig         - BigWig file (for UCSC Genome Browser Track)
+
+Regions can later be retrieved with 'get_region_coverage' :
+
+  get_region_coverage FILE.bedgraph.gz XLOC_001234 chr1 1000 4000 + > data.txt
+
+EOF
+	exit 0
+fi
+
+[ -z "$INPUT" ] && { echo "Missing input BAM file name. Use --help for details." >&2 ; exit 1 ; }
+
+[ -e "$INPUT" ] || { echo "Error: input BAM file ($INPUT) not found." >&2 ; exit 1 ; }
+
+BASE=$(basename $INPUT .bam) || exit 1
+BAM=$INPUT
+BEDGRAPH=${BASE}.bedgraph
+GENOMESIZE=${BASE}.genomesize
+BIGWIG=${BASE}.bigwig
+
+
+# [ -e "$BEDGRAPH" ] && { echo "Error: output file '$BEDGRAPH' already exist. not overwriting." >&2 ; exit 1 ; }
+
+##
+##  Calculate genome-coverage (+compress)
+##
+bedtools genomecov -split -bga -ibam "$INPUT" > "$BEDGRAPH" || exit 1
+[ -s "$BEDGRAPH" ] || { echo "Error: output file ($BEDGRAPH) is too small - something went wrong during creating of bedtools-genomecov" >&2 ; exit 1 ; }
+
+##
+## Create a Genome-Size file
+## e.g.
+##    chr1   1000000
+##    chr2   900000
+bam_to_genome_size "$BAM" > "$GENOMESIZE" || exit 1
+
+
+##
+## Create BigWig file
+##
+bedGraphToBigWig "$BEDGRAPH" "$GENOMESIZE" "$BIGWIG" || exit 1
+
+##
+## Compress the BedGraph file
+##
+bgzip "$BEDGRAPH" || exit 1
+BEDGRAPH="$BEDGRAPH.gz"
+
+##
+## Create Tabix Index
+##
+tabix -p bed "$BEDGRAPH" || exit 1
+
+
+##
+## For extra help, create a BAM index file
+##
+samtools index "$INPUT" || exit 1
+
+##
+## Done!
+##  Print a lot of information
+##
+echo "
+--- Coverage Processing Completed ---
+
+BAM:        $BAM
+BedGraph:   $BEDGRAPH
+BigWig:     $BIGWIG
+GenomeSize: $GENOMESIZE
+
+Custom Tracks in UCSC Genome Browser:
+  track type=bam name=\"$BASE reads\" bigDataUrl=http://[XXX-ADD-URL-XXX]/$BAM
+  track type=bigWig name=\"$BASE Coverage\" bigDataUrl=http://[XXX-ADD-URL-XXX]/$BIGWIG
+
+To extract specifc regions:
+
+  get_region_coverage.sh $BEDGRAPH XLOC_1234  chr1 50000 60000 + > data.txt
+
+"
