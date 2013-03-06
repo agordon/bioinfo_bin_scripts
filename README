@@ -12,6 +12,14 @@ Available scripts
 * sam_to_bambai - Create Sorted BAM + BAI files from a SAM file.
 * revcomp - Reverse-Complement a field in a text file.
 
+PREREQUISITES
+-------------
+
+* samtools
+* bedtools
+* bin_scripts ( https://github.com/agordon/bin_scripts )
+
+
 INSTALLATION
 ------------
 
