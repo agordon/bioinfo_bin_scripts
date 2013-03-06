@@ -12,6 +12,7 @@ bin_SCRIPTS = \
 	bam_to_genome_size \
 	bam_to_genomecov_tabix \
 	get_region_coverage \
-	sam_to_bambai
+	sam_to_bambai \
+	revcomp
 
 

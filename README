@@ -10,6 +10,7 @@ Available scripts
 * bam_to_genomecov_tabix - Create BedGraph+BigWig+Tabix from a BAM file.
 * get_region_coverage - Extract coverage for a specific region, for easy plotting.
 * sam_to_bambai - Create Sorted BAM + BAI files from a SAM file.
+* revcomp - Reverse-Complement a field in a text file.
 
 INSTALLATION
 ------------

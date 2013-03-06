@@ -1,0 +1,68 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use Getopt::Long;
+use File::Basename qw/basename/;
+
+my $VERSION = '@VERSION@';
+my $LICENSE = '@LICENSE@';
+
+my $field = 1 ;
+sub show_help;
+
+my $rc = GetOptions(
+		"help" => \&show_help,
+		"field|f=i" => \$field,
+	);
+die "Invalid command-line options" unless $rc;
+
+# no piped STDIN, and no files on the command line - show help
+show_help if -t STDIN && scalar(@ARGV)==0;
+
+# users specify 1-based field, convert it to 0-based.
+$field--;
+die "Error: invalid --field value" unless $field>=0;
+
+# Read each line, from either STDIN, or whatever files specified on the command line
+while (<ARGV>) {
+	chomp ;
+	my @fields = split /\t/ ;
+	die "Error: not enough input fields in input line $. (are you mixing TABs and spaces?)\n"
+		unless scalar(@fields)>$field;
+
+	my $oligo = $fields[$field];
+	die "Error: invalid nucleotide string ($oligo) on line $.\n"
+		unless $oligo =~ m/^[ACGTN]+$/i;
+
+	$oligo = reverse $oligo;
+	$oligo =~ tr/ACGTNacgtn/TGCANtgcan/;
+
+	$fields[$field] = $oligo;
+
+	print join("\t", @fields),"\n";
+}
+
+sub show_help
+{
+my $base = basename($0);
+print<<"EOF";
+Reverse-Complement Input files, version $VERSION
+Copyright (C) 2013, By A. Gordon ( gordon at cshl dot edu )
+License: $LICENSE
+
+This program reverse-complements a column (assuming it's a valid nucleotide string).
+
+Usage: $base --field=X < INPUT > OUTPUT
+
+Example:
+
+ \$ cat test1.txt
+ Hello	AAAAAATGC	World
+
+ \$ cat test1.txt | $base --f=2
+ Hello	GCATTTTTT	World
+
+EOF
+
+exit 0;
+}
