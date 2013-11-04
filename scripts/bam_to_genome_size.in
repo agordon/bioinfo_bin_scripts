@@ -1,6 +1,4 @@
-#!/usr/bin/env bash
-
-set -o pipefail
+#!/bin/sh
 
 ## Copyright (C) 2013   A. Gordon (gordon at cshl dot edu)
 ## License: @LICENSE@
@@ -13,7 +11,7 @@ INPUT="$1"
 
 if [ -z "$INPUT" -o "$INPUT" = "--help" -o "$INPUT" = "-h" ]; then
 BASE=$(basename "$0")
-	cat>&2<<EOF
+echo "
 Bam to Genome-Size file       version $VERSION
 Copyright (C) 2013 A. Gordon <gordon@cshl.edu>
 License: @LICENSE@
@@ -39,9 +37,7 @@ Typical Usage example:
  bedtools genomecov -bg -ibam mydata.bam > mydata.bedgraph
  $BASE mydata.bam > mydata.genomesize
  bedGraphToBigWig mydata.bedgraph mydata.genomesize mydata.bigwig
-
-
-EOF
+"
 	exit 1
 fi
 
@@ -50,16 +46,21 @@ fi
 OUTPUT="$2"
 [ -z "$OUTPUT" ] && OUTPUT="/dev/stdout"
 
+TMPHEADER=$(mktemp -t bam_to_genome.header.XXXXXXXX) || exit 1
 TMPERR=$(mktemp -t bam_to_genome.stderr.XXXXXXXX) || exit 1
-samtools view -H "$INPUT" 2>"$TMPERR" | grep "@SQ" | sed 's/@SQ\tSN:// ; s/LN://' | sort -k1,1 > "$OUTPUT"
-
+samtools view -H "$INPUT" 2>"$TMPERR" > "$TMPHEADER"
 EXITCODE=$?
 if [ "$EXITCODE" -ne "0" ]; then
 	echo "Error: failed to extract genome information from bam file '$INPUT'" >&2
 	echo "error message from samtools:" >&2
 	cat "$TMPERR" >&2
 	rm -f "$TMPERR"
+	rm -f "$TMPHEADER"
 	exit $EXITCODE
 fi
+
+grep "@SQ" "$TMPHEADER" | sed 's/@SQ\tSN:// ; s/LN://' | cut -f1,2 | sort -k1,1 > "$OUTPUT" || { echo "Error: parsing header '$TMPHEADER' failed." >&2 ; exit 1 ; }
+
 rm -f "$TMPERR"
+rm -f "$TMPHEADER"
 exit 0
