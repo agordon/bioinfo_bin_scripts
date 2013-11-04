@@ -154,7 +154,7 @@ else ## [if Stranded ]
 	# Step 4: Print UCSC GenomeBrowser Track Definitions
 	if [ ! -z "$trackdef" ]; then
 		echo "track type=bam name=\"$BASE reads\" visibility=pack bigDataUrl=http://xxURLxx/$BAM"
-		echo "track type=bigWig name=\"$BASE Plus Coverage\" color=255,0,0 visibility=full bigDataUrl=http://xxURLxx/$BIGWIG"
-		echo "track type=bigWig name=\"$BASE Minus Coverage\" color=0,0,255 visibility=full bigDataUrl=http://xxURLxx/$BIGWIG"
+		echo "track type=bigWig name=\"$BASE Plus Coverage\" color=255,0,0 visibility=full bigDataUrl=http://xxURLxx/$BIGWIG_PLUS"
+		echo "track type=bigWig name=\"$BASE Minus Coverage\" color=0,0,255 visibility=full bigDataUrl=http://xxURLxx/$BIGWIG_MINUS"
 	fi
 fi
