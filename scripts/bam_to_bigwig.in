@@ -1,0 +1,160 @@
+#!/bin/sh
+
+## Copyright (C) 2013   A. Gordon (assafgordon@gmail.com)
+## License: @LICENSE@
+## Version: @VERSION@
+
+BASE=$(basename "$0")
+if [ "$1" = "--help" -o "$1" = "-h" ]; then
+	cat<<EOF
+BAM to BigWig
+Copyright (C) 2013,  A. Gordon (gordon@cshl.edu)
+License: @LICENSE@
+Version: @VERSION@
+
+Usage:
+ $BASE [OPTIONS] [BAMFILE]
+
+Given a sorted BAM file, generates BigWig (coverage) files.
+
+OPTIONS:
+  -2   - Generate Stranded (two) BigWig tracks, for plus/minus strands.
+  -d   - Print (to STDOUT) a UCSC-compatible track definition
+         for the BAM and generated BigWig files.
+         The URL placeholder is 'xxURLxx'.
+  -k   - Keep the BedGraph files
+         (default: remove them after BigWig is created)
+  -h   - This help screen.
+
+For a given FILE.BAM, the some following files will be created:
+  FILE.bam.bai          - BAM file index (for UCSC Genome Browser Track)
+  FILE.bigwig           - BigWig file (for UCSC Genome Browser Track)
+  FILE.bedgraph         - Bedgraph file, for both strands.
+  FILE.plus.bigwig      - BigWig file (for UCSC Genome Browser Track)
+  FILE.minus.bigwig     - BigWig file (for UCSC Genome Browser Track)
+  FILE.plus.bedgraph    - BedGraph file, for the plus genome orientation.
+  FILE.minus.bedgraph   - BedGraph file, for the minus genome orientation.
+
+The plus/minus files will be created if '-2' option is used.
+The bedgraph files will be kept if '-k' option is used.
+
+UCSC GenomeBrowser Track Defition Line ('-d' option):
+BAM and BigWig files are ment to be used with the UCSC Genome Browser
+custom tracks feature (see http://genome.ucsc.edu/cgi-bin/hgCustom ).
+
+The tracks will contain a URL placeholder, as so:
+  track type=bam bigDataUrl=http://xxURLxx/FILE.BAM
+
+This placeholder can then be replaced with the URL of your server.
+
+Example:
+  # Create FILE.bigwig
+  \$ $BASE -d FILE.BAM > tracks.txt
+
+  # tracks.txt will contain:
+  \$ cat tracks.txt
+  track type=bam    name=FILE bigDataUrl=http://xxURLxx/FILE.BAM
+  track type=bigwig name=FILE bigDataUrl=http://xxURLxx/FILE.bigwig
+
+  # Update the URL to fit your server
+  \$ sed -i 's;xxURLxx;www.myserver.com/publicfiles/;' tracks.txt
+
+  # tracks.txt now points to your URLs:
+  \$ cat tracks.txt
+  track type=bam    name=FILE bigDataUrl=http://www.myserver.com/publicfiles//FILE.BAM
+  track type=bigwig name=FILE bigDataUrl=http://www.myserver.com/publicfiles//FILE.bigwig
+
+EOF
+	exit 0
+fi
+
+#sort_bam=
+stranded=
+trackdef=
+keep_bedgraph=
+while getopts s2dkh NAME
+do
+	case $NAME in
+#		s)   sort_bam=1;;
+		2)   stranded=1;;
+		d)   trackdef=1;;
+		k)   keep_bedgraph=1;;
+		?)   printf "See $BASE -h for more details.\n"
+			exit 2;;
+esac
+done
+shift $(($OPTIND - 1))
+
+INPUT=$1
+[ -z "$INPUT" ] && { echo "Missing input BAM file name. Use --help for details." >&2 ; exit 1 ; }
+
+[ -e "$INPUT" ] || { echo "Error: input BAM file ($INPUT) not found." >&2 ; exit 1 ; }
+
+BASE=$(basename $INPUT .bam) || exit 1
+BAM=$INPUT
+BAI=$INPUT.bai
+BEDGRAPH=${BASE}.bedgraph
+BEDGRAPH_PLUS=${BASE}.plus.bedgraph
+BEDGRAPH_MINUS=${BASE}.minus.bedgraph
+BIGWIG=${BASE}.bigwig
+BIGWIG_PLUS=${BASE}.plus.bigwig
+BIGWIG_MINUS=${BASE}.minus.bigwig
+GENOMESIZE=${BASE}.genomesize
+
+##
+## Create a Genome-Size file
+## e.g.
+##    chr1   1000000
+##    chr2   900000
+bam_to_genome_size "$BAM" > "$GENOMESIZE" || exit 1
+
+# Create BAI file
+if [ ! -e "$BAI" ]; then
+	samtools index "$INPUT" || exit 1;
+fi
+
+if [ -z "$stranded" ]; then
+	## Create non-stranded coverage plots - one BigWig
+
+	# Step 1: BedGraph
+	bedtools genomecov -bg -ibam "$INPUT" > "$BEDGRAPH" || exit 1
+
+	# Step 2: BigWig
+	bedGraphToBigWig "$BEDGRAPH" "$GENOMESIZE" "$BIGWIG" || exit 1
+
+	# Step 3: cleanup
+	[ -z "$keep_bedgraph" ] && rm -f "$BEDGRAPH"
+	rm -f "$GENOMESIZE"
+
+	# Step 4: Print UCSC GenomeBrowser Track Definitions
+	if [ ! -z "$trackdef" ]; then
+		echo "track type=bam name=\"$BASE reads\" visibility=pack bigDataUrl=http://xxURLxx/$BAM"
+		echo "track type=bigWig name=\"$BASE Coverage\" visibility=full bigDataUrl=http://xxURLxx/$BIGWIG"
+	fi
+
+else ## [if Stranded ]
+
+	## Create Stranded coverage plots - two BigWigs
+
+	# Step 1: BedGraph
+	bedtools genomecov -strand + -bg -ibam "$INPUT" > "$BEDGRAPH_PLUS" || exit 1
+	bedtools genomecov -strand - -bg -ibam "$INPUT" > "${BEDGRAPH_MINUS}.tmp" || exit 1
+	# Negate the Minus Strand
+	awk -v FS="\t" -v OFS="\t" '{$4=-$4;print $1,$2,$3,$4}' "${BEDGRAPH_MINUS}.tmp" > "$BEDGRAPH_MINUS" || exit 1
+	rm -f "${BEDGRAPH_MINUS}.tmp"
+
+	# Step 2: BigWig
+	bedGraphToBigWig "$BEDGRAPH_PLUS" "$GENOMESIZE" "$BIGWIG_PLUS" || exit 1
+	bedGraphToBigWig "$BEDGRAPH_MINUS" "$GENOMESIZE" "$BIGWIG_MINUS" || exit 1
+
+	# Step 3: cleanup
+	[ -z "$keep_bedgraph" ] && rm -f "$BEDGRAPH_PLUS" "$BEDGRAPH_MINUS"
+	rm -f "$GENOMESIZE"
+
+	# Step 4: Print UCSC GenomeBrowser Track Definitions
+	if [ ! -z "$trackdef" ]; then
+		echo "track type=bam name=\"$BASE reads\" visibility=pack bigDataUrl=http://xxURLxx/$BAM"
+		echo "track type=bigWig name=\"$BASE Plus Coverage\" color=255,0,0 visibility=full bigDataUrl=http://xxURLxx/$BIGWIG"
+		echo "track type=bigWig name=\"$BASE Minus Coverage\" color=0,0,255 visibility=full bigDataUrl=http://xxURLxx/$BIGWIG"
+	fi
+fi

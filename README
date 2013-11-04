@@ -6,6 +6,7 @@ Copyright (C) 2013, A. Gordon ( gordon at cshl dot edu )
 Available scripts
 -----------------
 
+* bam_to_bigwig - Create BigWigs (coverage plots) from a BAM file (stranded or non-stranded)
 * bam_to_genome_size - Create a 'genome-size' file based on BAM file header.
 * bam_to_genomecov_tabix - Create BedGraph+BigWig+Tabix from a BAM file.
 * get_region_coverage - Extract coverage for a specific region, for easy plotting.
